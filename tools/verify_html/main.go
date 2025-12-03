@@ -36,7 +36,13 @@ func main() {
 				for _, cell := range row.TableCells {
 					fmt.Print("  Cell: ")
 					for _, p := range cell.Paragraphs {
+						style := ""
+						if p.Properties != nil && p.Properties.Style != nil {
+							style = p.Properties.Style.Val
+						}
+						fmt.Printf("P [%s]: ", style)
 						printP(p)
+						fmt.Println()
 					}
 					fmt.Println()
 				}

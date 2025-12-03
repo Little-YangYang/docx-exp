@@ -102,11 +102,11 @@ func createParagraph(doc *docx.Docx) *docx.Paragraph {
 func headingStyle(tag string) string {
 	switch tag {
 	case "h1":
-		return "Heading1"
+		return "1"
 	case "h2":
-		return "Heading2"
+		return "2"
 	case "h3":
-		return "Heading3"
+		return "3"
 	default:
 		return "Normal"
 	}
