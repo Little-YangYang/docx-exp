@@ -6,5 +6,5 @@ require github.com/fumiama/go-docx v0.0.0-20250506085032-0c30fd09304b
 
 require (
 	github.com/fumiama/imgsz v0.0.2 // indirect
-	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/net v0.47.0
 )

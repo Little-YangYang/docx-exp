@@ -553,7 +553,11 @@ func (t *DocxTemplate) cloneCell(cell *docx.WTableCell) (*docx.WTableCell, error
 	}
 	newCell.Tables = make([]*docx.Table, len(cell.Tables))
 	for i, tbl := range cell.Tables {
-		newCell.Tables[i] = tbl // TODO: Clone
+		newT, err := t.cloneTable(tbl)
+		if err != nil {
+			return nil, err
+		}
+		newCell.Tables[i] = newT
 	}
 	return &newCell, nil
 }
