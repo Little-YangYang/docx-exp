@@ -27,6 +27,8 @@ func main() {
 				<h1>Title Level 1</h1>
 				<p>This is a paragraph with an image.</p>
 				<p><img src="testdata/test_image.png" /></p>
+				<p>Base64 Image:</p>
+				<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" /></p>
 				<h2>Subtitle Level 2</h2>
 				<p>Another paragraph.</p>
 			`,

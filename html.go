@@ -1,6 +1,7 @@
 package docxexp
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -150,7 +151,21 @@ func addImage(doc *docx.Docx, p *docx.Paragraph, n *html.Node) error {
 		return fmt.Errorf("no src")
 	}
 
-	if strings.HasPrefix(src, "http") {
+	if strings.HasPrefix(src, "data:image/") {
+		// Base64
+		parts := strings.Split(src, ",")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid base64 image")
+		}
+		data, err := base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			return err
+		}
+		_, err = p.AddInlineDrawing(data)
+		if err != nil {
+			return err
+		}
+	} else if strings.HasPrefix(src, "http") {
 		resp, err := http.Get(src)
 		if err != nil {
 			return err
