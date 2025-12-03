@@ -2,6 +2,8 @@
 
 A wrapper around `github.com/fumiama/go-docx` to provide advanced template rendering features for DOCX files, inspired by `docxtpl` and `docx-templates`.
 
+ATTENTION: This project is in development and may not be stable. Use at your own risk.
+
 ## Features
 
 - **Variable Replacement**: `{{ .Var }}` or `{{ Var }}`.
