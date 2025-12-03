@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	f, err := os.Open("examples/html_injection/result.docx")
+	f, err := os.Open("examples/row_if/result_true.docx")
 	if err != nil {
 		panic(err)
 	}

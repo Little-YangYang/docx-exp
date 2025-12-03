@@ -424,8 +424,10 @@ func (t *DocxTemplate) cloneTable(tbl *docx.Table) (*docx.Table, error) {
 func (t *DocxTemplate) processTable(table *docx.Table, data interface{}) error {
 	var newRows []*docx.WTableRow
 
-	for _, row := range table.TableRows {
+	for i := 0; i < len(table.TableRows); i++ {
+		row := table.TableRows[i]
 		rangeCmd, rangeContent, hasRange := t.checkRowRange(row)
+		ifCmd, _, hasIf := t.checkRowIf(row)
 
 		if hasRange {
 			slice, err := t.evaluateExpression(rangeCmd, data)
@@ -435,8 +437,8 @@ func (t *DocxTemplate) processTable(table *docx.Table, data interface{}) error {
 
 			sliceVal := reflect.ValueOf(slice)
 			if sliceVal.Kind() == reflect.Slice || sliceVal.Kind() == reflect.Array {
-				for i := 0; i < sliceVal.Len(); i++ {
-					item := sliceVal.Index(i).Interface()
+				for k := 0; k < sliceVal.Len(); k++ {
+					item := sliceVal.Index(k).Interface()
 
 					clonedRow, err := t.cloneRow(row)
 					if err != nil {
@@ -452,6 +454,41 @@ func (t *DocxTemplate) processTable(table *docx.Table, data interface{}) error {
 					newRows = append(newRows, clonedRow)
 				}
 			}
+		} else if hasIf {
+			// Find matching endif
+			endIdx := t.findRowBlockEnd(table.TableRows, i+1)
+			if endIdx == -1 {
+				return fmt.Errorf("missing {{endif}} for {{if %s}}", ifCmd)
+			}
+
+			// Evaluate condition
+			val, err := t.evaluateExpression(ifCmd, data)
+			if err != nil {
+				return err
+			}
+
+			truthy := isTruthy(val)
+			if truthy {
+				// Process rows inside the block
+				// We skip the if-row (i) and the endif-row (endIdx)
+				// But wait, the user might want to keep the content of the if-row if it has other stuff?
+				// Usually row-if implies the whole row is the control structure.
+				// Based on the image, the if-row contains ONLY the if tag.
+				// So we skip i and endIdx.
+				for j := i + 1; j < endIdx; j++ {
+					innerRow := table.TableRows[j]
+					clonedRow, err := t.cloneRow(innerRow)
+					if err != nil {
+						return err
+					}
+					if err := t.processRow(clonedRow, data); err != nil {
+						return err
+					}
+					newRows = append(newRows, clonedRow)
+				}
+			}
+			// Skip to endif
+			i = endIdx
 		} else {
 			if err := t.processRow(row, data); err != nil {
 				return err
@@ -462,6 +499,58 @@ func (t *DocxTemplate) processTable(table *docx.Table, data interface{}) error {
 
 	table.TableRows = newRows
 	return nil
+}
+
+func (t *DocxTemplate) checkRowIf(row *docx.WTableRow) (string, string, bool) {
+	if len(row.TableCells) == 0 {
+		return "", "", false
+	}
+	cell := row.TableCells[0]
+	if len(cell.Paragraphs) == 0 {
+		return "", "", false
+	}
+	p := cell.Paragraphs[0]
+
+	text := t.getParagraphText(p)
+	text = strings.TrimSpace(text)
+	if strings.HasPrefix(text, "{{if") || strings.HasPrefix(text, "{{ if") {
+		// Check if it's a block if (not inline)
+		// For row-level, we assume the whole cell text is the tag, or at least it starts with it.
+		// We need to extract the condition.
+		start := strings.Index(text, "{{")
+		end := strings.Index(text, "}}")
+		if start != -1 && end != -1 {
+			content := text[start : end+2]
+			cmd := strings.TrimSpace(text[start+2 : end])
+			cmd = strings.TrimPrefix(cmd, "if")
+			cmd = strings.TrimSpace(cmd)
+			return cmd, content, true
+		}
+	}
+	return "", "", false
+}
+
+func (t *DocxTemplate) findRowBlockEnd(rows []*docx.WTableRow, startIdx int) int {
+	depth := 0
+	for i := startIdx; i < len(rows); i++ {
+		row := rows[i]
+		if _, _, hasIf := t.checkRowIf(row); hasIf {
+			depth++
+		} else {
+			// Check for endif
+			if len(row.TableCells) > 0 && len(row.TableCells[0].Paragraphs) > 0 {
+				p := row.TableCells[0].Paragraphs[0]
+				text := strings.TrimSpace(t.getParagraphText(p))
+				if strings.HasPrefix(text, "{{endif}}") || strings.HasPrefix(text, "{{ endif}}") {
+					if depth == 0 {
+						return i
+					}
+					depth--
+				}
+			}
+		}
+	}
+	return -1
 }
 
 func (t *DocxTemplate) processRow(row *docx.WTableRow, data interface{}) error {
@@ -539,6 +628,30 @@ func (t *DocxTemplate) cloneRow(row *docx.WTableRow) (*docx.WTableRow, error) {
 		newRow.TableRowProperties = &p
 	}
 	return &newRow, nil
+}
+
+func isTruthy(val interface{}) bool {
+	if val == nil {
+		return false
+	}
+	v := reflect.ValueOf(val)
+	switch v.Kind() {
+	case reflect.Bool:
+		return v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() != 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return v.Uint() != 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() != 0
+	case reflect.String:
+		return v.String() != ""
+	case reflect.Slice, reflect.Map, reflect.Array:
+		return v.Len() > 0
+	case reflect.Ptr, reflect.Interface:
+		return !v.IsNil()
+	}
+	return true
 }
 
 func (t *DocxTemplate) cloneCell(cell *docx.WTableCell) (*docx.WTableCell, error) {
